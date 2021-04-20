@@ -1,0 +1,40 @@
+site_name: "Documentation"
+dev_addr: 0.0.0.0:8000
+site_dir: site
+
+theme:
+    name: readthedocs
+    custom_dir: theme
+    highlightjs: true
+    hljs_languages:
+        - yaml
+        - rust
+        - text
+        - raw
+        - json
+        - rest
+
+markdown_extensions:
+  - admonition
+  - extra
+  - nl2br
+  - sane_lists
+  - toc:
+      permalink: "#"
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.smartsymbols
+  - mdx_include
+
+
+extra_css: [https://atc-cdn.apps.wwtatc.com/css/labdocs-mkdocs.css]
+
+plugins:
+  - search
+  - macros:
+      include_yaml:
+        - macros/macros.yaml
+nav:
+- About: 'index.md'
+ 
+- Guide: 'https://labdocs.apps.wwtatc.com/labdocs-docs/'

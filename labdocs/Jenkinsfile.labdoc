@@ -1,0 +1,45 @@
+pipeline {
+  agent any
+  options {
+    buildDiscarder(logRotator(numToKeepStr: '100'))
+  }
+  environment {
+        committerEmail = sh (
+              script: 'git --no-pager show -s --format=\'%ae\'',
+              returnStdout: true
+        ).trim()
+        gitRepoName = sh (
+          script: 'echo $GIT_URL | awk -F/ {\'print $NF\'} | awk -F. {\'print $1\'}',
+          returnStdout: true
+        )
+        baseUrl = sh (
+          script: '[ $GIT_BRANCH = "pub" ] || [ $GIT_BRANCH = "main" ] && echo "https://labdocs.apps.wwtatc.com/" || echo "https://labdocs-review.apps.wwtatc.com/"',
+          returnStdout: true
+        )
+        accessUrl = "${baseUrl.trim()}" + "${gitRepoName}"
+  }
+  stages {
+    stage ('Build') {
+      steps {
+        sh """
+        /labdocs/deploy_mkdoc.sh $GIT_URL $WORKSPACE $GIT_BRANCH $BUILD_ID
+        """
+      }
+    }
+  }
+  post {
+    success{
+        script{
+            emailext(subject: "Labdoc build complete: ${gitRepoName}", body: "Your branch ${GIT_BRANCH} has been built for ${gitRepoName}\n\nYou can access it at ${accessUrl}\n\nPlease see https://labdoc.apps.wwtatc.com/labdocs-docs for information about how to edit your docs. The build log is attached.\n\n\n", attachLog: true, from: "labdoc@wwtatc.com", to: "${committerEmail}")
+            cleanWs()
+        }
+      }
+    failure{
+      script{
+          emailext(subject: "Failed to build labdoc: ${gitRepoName}", body: "There was an error building your branch ${GIT_BRANCH} for ${gitRepoName}\n\nPlease see attached log for details.", attachLog: true, from: "labdoc@wwtatc.com", to: "${committerEmail}")
+          cleanWs()
+      }
+    }
+  }
+}
+

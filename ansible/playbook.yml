@@ -1,0 +1,10 @@
+---
+- name: TEST
+  hosts: localhost
+  gather_facts: false
+
+  tasks:
+    - include_role:
+        name: ansible_ios_aaa
+    - cisco.ios.ios_command:
+        commands: show ip route

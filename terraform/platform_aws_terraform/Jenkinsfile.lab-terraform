@@ -1,0 +1,89 @@
+import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException
+pipeline {
+    agent {
+        docker {
+            image 'hashicorp/terraform:0.12.29'
+            args  '--entrypoint="" -u root'
+            reuseNode true
+        }
+    }
+    environment {
+        REPO_NAME = sh (
+          script: 'echo $GIT_URL | awk -F/ {\'print $NF\'} | awk -F. {\'print $1\'}',
+          returnStdout: true
+        ).trim()
+        SSH_CREDS = credentials('ATC_JENKINS')
+        TF_IN_AUTOMATION=true
+        BDN = sh(script: "echo `date +%s`", returnStdout: true).trim()
+        AWS_ACCESS_KEY_ID = credentials('AWS_ACCESS_KEY_ID')
+        AWS_SECRET_ACCESS_KEY = credentials('AWS_SECRET_ACCESS_KEY')
+    }
+    stages {
+        stage("Checkout") {
+            steps {
+            checkout(
+                [$class: 'GitSCM',
+                branches: [[name: '*/main'], [name: '*/review']],
+                doGenerateSubmoduleConfigurations: false,
+                extensions: [
+                    [$class: 'PathRestriction',
+                        excludedRegions: '',
+                        includedRegions: 'terraform/*']],
+                        submoduleCfg: [],
+                        userRemoteConfigs: [[credentialsId: 'ATC_JENKINS', url: GIT_URL]]]
+                )
+            }
+        }
+        stage('Init') {
+            steps { 
+                sh '''
+                    cd terraform 
+                    terraform init -input=false
+                '''
+            }
+        }
+        stage('Validate') {
+            steps {
+                sh '''
+                    cd terraform 
+                    terraform validate
+                '''
+            }
+        }
+        stage('Plan') {
+            steps {
+                sh '''
+                    cd terraform 
+                    terraform plan -input=false -out=tfplan
+                '''
+            }
+        }
+    }
+    post {
+          success {
+            script {
+                if ("review".equals(GIT_BRANCH) || "main".equals(GIT_BRANCH)) {
+                    sh '''
+                        echo "Creating File Directory: /terraform/labs/$GIT_BRANCH/$REPO_NAME"
+                        mkdir -p /terraform/labs/$GIT_BRANCH/$REPO_NAME
+                        
+                        echo "Copying Plan"
+                        cd terraform
+                        cp tfplan /terraform/labs/$GIT_BRANCH/$REPO_NAME/
+                        cp -r .terraform /terraform/labs/$GIT_BRANCH/$REPO_NAME
+                    '''
+                }
+            }
+          }
+        failure {
+            emailext (
+                    subject: '${DEFAULT_SUBJECT}',
+                    body: '${DEFAULT_CONTENT}',
+                    recipientProviders: [[$class: 'DevelopersRecipientProvider'], [$class: 'CulpritsRecipientProvider'], [$class: 'RequesterRecipientProvider']]
+            )
+        }
+        cleanup {	
+            cleanWs()	
+        }	
+    }
+}

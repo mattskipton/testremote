@@ -1,0 +1,9 @@
+---
+smtp:
+  subject: "Automated Testing Framework Health Report"
+  port: "25"
+  ip: "10.253.181.39"
+  sender_email :  "donotreply@wwtatc.com"
+  timeout: "100"
+  subtype: "plain"
+owner_email: "carl.dubois@wwt.com"

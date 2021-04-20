@@ -1,0 +1,31 @@
+---
+- name: Generate and email a Lab Health Report Example
+  hosts: all
+  connection: local
+  gather_facts: yes
+  vars:
+    date: "{{ ansible_date_time.date }}"
+  
+  tasks:
+    - name: Generate a health-report
+      copy:
+        dest: "./lab-health_report"
+        content: |
+          Timestamp: "{{ date }}"
+          Test 1: License Check - Pass / Fail
+          Test 2: Network Connectivity - Pass / Fail
+  
+    - name: Email result to administrator
+      mail:
+        subject: "{{ smtp.subject }}"
+        port: "{{ smtp.port }}"
+        host: "{{ inventory_hostname }}"
+        to: "{{ owner_email }}"
+        from:  "{{ smtp.sender_email }}"
+        timeout: "{{ smtp.timeout | default(20) }}"
+        subtype: "{{ smtp.subtype | default(html) }}"
+        attach:
+        - "./lab-health_report"
+      delegate_to: localhost
+      when: inventory_hostname == smtp.ip
+
